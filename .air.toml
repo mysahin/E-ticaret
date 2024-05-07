@@ -1,0 +1,11 @@
+# Çalışma dizini
+root = "."
+
+[build]
+bin = "tmp/main"
+delay = 1000
+stop_on_error = true
+clean_on_exit = true
+
+[log]
+time = false

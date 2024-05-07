@@ -1,13 +1,12 @@
 package database
 
 import (
+	"ETicaret/Models"
 	"fmt"
-	"log"
-	"strconv"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"log"
 )
 
 type Dbinstance struct {
@@ -17,14 +16,8 @@ type Dbinstance struct {
 var DB Dbinstance
 
 func Connect() {
-	p := "5432"
-	port, err := strconv.ParseUint(p, 10, 32)
-	if err != nil {
-		log.Fatal(err)
-	}
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Shanghai",
-		"localhost", "postgres",
-		"password", "ticaret", port)
+	port := "5432"
+	dsn := fmt.Sprintf("host=db user=postgres password=password dbname=db port=%s sslmode=disable TimeZone=Asia/Shanghai", port)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -35,7 +28,7 @@ func Connect() {
 	log.Println("connected success")
 	db.Logger = logger.Default.LogMode(logger.Info)
 	log.Println("running migrations")
-	db.AutoMigrate()
+	db.AutoMigrate(Models.Login{}, Models.User{})
 	DB = Dbinstance{
 		Db: db,
 	}

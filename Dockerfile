@@ -1,5 +1,5 @@
 FROM golang:latest
-WORKDIR /app
+WORKDIR /usr/src/app
+RUN go install github.com/cosmtrek/air@latest
 COPY . .
 RUN go mod download
-CMD ["go","run","main.go"]
