@@ -17,6 +17,7 @@ func Routes() *fiber.App {
 	r.Get("/view-by-type/:type", Controllers.Product{}.ViewProductsByType)
 	r.Get("/view-by-category/:category", Controllers.Product{}.ViewProductsByCategory)
 	r.Post("/delete-product/:id", Controllers.Product{}.DeleteProduct)
-	r.Post("/archive/:id", Controllers.Product{}.Archive)
+	r.Put("/archive/:id", Controllers.Product{}.ArchiveProduct)
+	r.Put("/edit-product", Controllers.Product{}.EditProduct)
 	return r
 }

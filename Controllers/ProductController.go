@@ -14,19 +14,19 @@ func (product Product) AddProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
-		product := new(Models.Product)
+		addedProduct := new(Models.Product)
 		if err := c.BodyParser(&product); err != nil {
 			return err
 		}
 		userName := getUserName(c)
 		newProduct := Models.Product{
-			TypeId:           product.TypeId,
-			ProductName:      product.ProductName,
-			ProductPrice:     product.ProductPrice,
-			ProductStatement: product.ProductStatement,
-			ProductTitle:     product.ProductTitle,
+			TypeId:           addedProduct.TypeId,
+			ProductName:      addedProduct.ProductName,
+			ProductPrice:     addedProduct.ProductPrice,
+			ProductStatement: addedProduct.ProductStatement,
+			ProductTitle:     addedProduct.ProductTitle,
 			SellerUserName:   userName,
-			ProductCount:     product.ProductCount,
+			ProductCount:     addedProduct.ProductCount,
 		}
 		if err := db.Create(&newProduct).Error; err != nil {
 			return err
@@ -135,7 +135,7 @@ func (product Product) DeleteProduct(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) Archive(c *fiber.Ctx) error {
+func (product Product) ArchiveProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		username := getUserName(c)
@@ -170,4 +170,38 @@ func (product Product) Archive(c *fiber.Ctx) error {
 	}
 
 	return c.JSON("lütfen giriş yapınız!!!")
+}
+
+func (product Product) EditProduct(c *fiber.Ctx) error {
+	isLogin := Helpers.IsLogin(c)
+	if isLogin {
+		db := database.DB.Db
+		editedProduct := new(Models.Product)
+		if err := c.BodyParser(&editedProduct); err != nil {
+			return err
+		}
+		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_statement", editedProduct.ProductStatement).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_title", editedProduct.ProductTitle).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_name", editedProduct.ProductName).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_price", editedProduct.ProductPrice).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_count", editedProduct.ProductCount).Error; err != nil {
+			return err
+		}
+		return c.JSON(fiber.Map{
+			"message": "Ürün başarıyla güncellendi.",
+			"product": editedProduct,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"Warning": "Lütfen giriş yapınız!",
+	})
 }
