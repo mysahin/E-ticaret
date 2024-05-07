@@ -48,7 +48,7 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 		db := database.DB.Db
 		var products []Models.Product
 		username := getUserName(c)
-		if err := db.Find(&products, "seller_user_name=?", username).Error; err != nil {
+		if err := db.Find(&products, "seller_user_name=? AND archived=?", username, "0").Error; err != nil {
 		}
 		fmt.Println(getID(c))
 		return c.JSON(fiber.Map{
@@ -66,7 +66,7 @@ func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 	db := database.DB.Db
 	var products []Models.Product
 	productType := c.Params("type")
-	if err := db.Find(&products, "type_id=?", productType).Error; err != nil {
+	if err := db.Find(&products, "type_id=? AND archived=?", productType, "0").Error; err != nil {
 		return c.JSON(fiber.Map{
 			"error": err,
 		})
@@ -90,7 +90,7 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 
 	for _, x := range types {
 		var products []Models.Product
-		if err := db.Find(&products, "type_id=?", x.ID).Error; err != nil {
+		if err := db.Find(&products, "type_id=? AND archived=?", x.ID, "0").Error; err != nil {
 			return c.JSON(fiber.Map{
 				"error": err.Error(),
 			})
@@ -101,4 +101,73 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"Ürünler": categoryProducts,
 	})
+}
+
+func (product Product) DeleteProduct(c *fiber.Ctx) error {
+	isLogin := Helpers.IsLogin(c)
+	if isLogin {
+		db := database.DB.Db
+		productId := c.Params("id")
+		var deleteProduct Models.Product
+
+		if err := db.First(&deleteProduct, "id = ?", productId).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "Gönderi bulunamadı.",
+			})
+		}
+		username := getUserName(c)
+		if deleteProduct.SellerUserName == username {
+			if err := db.Delete(&deleteProduct).Error; err != nil {
+				return err
+			}
+
+			return c.JSON(fiber.Map{
+				"message": "Ürün başarıyla silindi.",
+			})
+		}
+		return c.JSON(fiber.Map{
+			"message": "Bu ürünü silme yetkiniz yok!",
+		})
+	}
+
+	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		"message": "Lütfen önce giriş yapınız.",
+	})
+}
+
+func (product Product) Archive(c *fiber.Ctx) error {
+	isLogin := Helpers.IsLogin(c)
+	if isLogin {
+		username := getUserName(c)
+
+		db := database.DB.Db
+		postID := c.Params("id")
+		var archivedProduct Models.Product
+
+		if err := db.First(&archivedProduct, postID).Error; err != nil {
+			return err
+		}
+		if archivedProduct.SellerUserName == username {
+			if err := db.First(&archivedProduct).Where("id=?", postID).Error; err != nil {
+				return err
+			}
+			if archivedProduct.Archived == false {
+				if err := db.Model(&archivedProduct).Where("id=?", postID).Update("archived", "1").Error; err != nil {
+					return err
+				}
+				return c.JSON("Başarıyla arşivlendi.")
+			} else {
+				if err := db.Model(&archivedProduct).Where("id=?", postID).Update("archived", "0").Error; err != nil {
+					return err
+				}
+				return c.JSON("Başarıyla arşivden çıkarıldı.")
+			}
+
+		}
+		return c.JSON(fiber.Map{
+			"Warning": "Bu ürün için yetkiniz yok!",
+		})
+	}
+
+	return c.JSON("lütfen giriş yapınız!!!")
 }

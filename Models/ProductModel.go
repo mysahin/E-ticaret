@@ -11,4 +11,5 @@ type Product struct {
 	ProductStatement string `json:"product_statement"`
 	SellerUserName   string `json:"seller_username"`
 	ProductCount     int    `json:"product_count"`
+	Archived         bool   `json:"archived"`
 }
