@@ -57,7 +57,48 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"Message": "Önce giriş yapmalısınız!!!",
+		"Warning": "Önce giriş yapmalısınız!",
 	})
 
+}
+
+func (product Product) ViewProductsByType(c *fiber.Ctx) error {
+	db := database.DB.Db
+	var products []Models.Product
+	productType := c.Params("type")
+	if err := db.Find(&products, "type_id=?", productType).Error; err != nil {
+		return c.JSON(fiber.Map{
+			"error": err,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"Ürünler": products,
+	})
+}
+
+func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
+	db := database.DB.Db
+	var categoryProducts []Models.Product
+	var types []Models.Type
+	productCategory := c.Params("category")
+	if err := db.Find(&types, "category_id=?", productCategory).Error; err != nil {
+		return c.JSON(fiber.Map{
+			"error": err,
+		})
+	}
+
+	for _, x := range types {
+		var products []Models.Product
+		if err := db.Find(&products, "type_id=?", x.ID).Error; err != nil {
+			return c.JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		categoryProducts = append(categoryProducts, products...)
+	}
+
+	return c.JSON(fiber.Map{
+		"Ürünler": categoryProducts,
+	})
 }

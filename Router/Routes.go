@@ -14,5 +14,7 @@ func Routes() *fiber.App {
 	//Ürün işlemleri
 	r.Post("/add-product", Controllers.Product{}.AddProduct)
 	r.Get("/view-my-products", Controllers.Product{}.ViewMyProduct)
+	r.Get("/view-by-type/:type", Controllers.Product{}.ViewProductsByType)
+	r.Get("/view-by-category/:category", Controllers.Product{}.ViewProductsByCategory)
 	return r
 }
