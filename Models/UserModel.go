@@ -10,5 +10,5 @@ type User struct {
 	UserName string `json:"user_name"`
 	Password string `json:"password"`
 	Adress   string `json:"adress"`
-	TcNo     string `json:"tc_no"`
+	TcNo     int    `json:"tc_no"`
 }
