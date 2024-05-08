@@ -13,6 +13,17 @@ services:
     networks:
       - my-network
 
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=password
+      - REDIS_PORT=6379
+      - REDIS_DATABASES=16
+    networks:
+      - my-network
   db:
     image: postgres:alpine
     environment:

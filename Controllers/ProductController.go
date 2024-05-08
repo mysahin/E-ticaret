@@ -61,6 +61,19 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 	})
 
 }
+func (product Product) ViewProductById(c *fiber.Ctx) error {
+	db := database.DB.Db
+	var products Models.Product
+	productId := c.Params("id")
+	if err := db.First(&products, "id=? AND archived=?", productId, "0").Error; err != nil {
+		return c.JSON(fiber.Map{
+			"error": err,
+		})
+	}
+	return c.JSON(fiber.Map{
+		"Ürün": products,
+	})
+}
 
 func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 	db := database.DB.Db
