@@ -4,8 +4,10 @@ import (
 	database "ETicaret/Database"
 	"ETicaret/Helpers"
 	"ETicaret/Models"
+	"errors"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 	"strconv"
 )
 
@@ -229,28 +231,47 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 		})
 	}
 
-	// Ürünü veritabanından bul
-	var products Models.Product
-	if err := database.DB.Db.First(&products, "id = ?", productID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Ürün bulunamadı",
-		})
+	uIntID, err := strconv.ParseUint(productID, 10, 64)
+	if err != nil {
+		return err
 	}
 
-	// Ürüne puan ver
-	products.ProductRating = (products.ProductRating*float64(products.NumberOfRatings) + float64(rating)) / float64(products.NumberOfRatings+1)
-	products.NumberOfRatings++
+	db := database.DB.Db
+	username := getUserName(c)
 
-	// Veritabanında güncelle
-	if err := database.DB.Db.Save(&products).Error; err != nil {
+	// Rating tablosunda kullanıcının daha önce bu ürüne puan verip vermediğini kontrol et
+	var existingRating Models.Rating
+	if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingRating).Error; err == nil {
+		return c.JSON(fiber.Map{
+			"message": "Bu ürüne zaten puan verdiniz.",
+		})
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	// Yeni bir rating oluştur
+	newRating := Models.Rating{
+		ProductId: uIntID,
+		Username:  username,
+		Rating:    rating,
+	}
+
+	if err := db.Create(&newRating).Error; err != nil {
+		return err
+	}
+
+	// Rating tablosunda, verilen ürün ID'sine sahip rating'lerin ortalamasını al
+	var averageRating float64
+	if err := db.Model(&Models.Rating{}).Where("product_id = ?", productID).Select("AVG(rating) as average_rating").Scan(&averageRating).Error; err != nil {
+		return err
+	}
+
+	// Ürünün rating'ini güncelle
+	if err := db.Model(&Models.Product{}).Where("id = ?", productID).Update("product_rating", averageRating).Error; err != nil {
 		return err
 	}
 
 	return c.JSON(fiber.Map{
-		"message":           "Ürün başarıyla puanlandı.",
-		"product_id":        productID,
-		"rating":            rating,
-		"average_rating":    products.ProductRating,
-		"number_of_ratings": products.NumberOfRatings,
+		"message": "Ürüne başarıyla puan verdiniz.",
 	})
 }
