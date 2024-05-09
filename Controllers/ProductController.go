@@ -18,10 +18,10 @@ func (product Product) AddProduct(c *fiber.Ctx) error {
 	if isLogin {
 		db := database.DB.Db
 		addedProduct := new(Models.Product)
-		if err := c.BodyParser(&product); err != nil {
+		if err := c.BodyParser(&addedProduct); err != nil {
 			return err
 		}
-		userName := getUserName(c)
+		userName := Helpers.GetUserName(c)
 		newProduct := Models.Product{
 			TypeId:           addedProduct.TypeId,
 			ProductName:      addedProduct.ProductName,
@@ -61,7 +61,7 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 		offset := (page - 1) * pageSize
 
 		var products []Models.Product
-		username := getUserName(c)
+		username := Helpers.GetUserName(c)
 		if err := db.Where("seller_user_name=? AND archived=?", username, "0").Find(&products).Error; err != nil {
 			return err
 		}
@@ -144,7 +144,7 @@ func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 	currentPage := page
 
 	// Geçersiz sayfa kontrolü
-	if currentPage > totalPages || currentPage < 1 {
+	if currentPage > totalPages {
 		return c.JSON(fiber.Map{
 			"Error": "Sayfa bulunamadı.",
 		})
@@ -204,7 +204,7 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 	currentPage := page
 
 	// Geçersiz sayfa kontrolü
-	if currentPage > totalPages || currentPage < 1 {
+	if currentPage > totalPages {
 		return c.JSON(fiber.Map{
 			"Error": "Sayfa bulunamadı.",
 		})
@@ -224,15 +224,8 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 		"currentPage": currentPage,
 		"nextPage":    nextPage,
 		"prevPage":    prevPage,
-		"products":    categoryProducts[offset:min(offset+pageSize, totalRecords)],
+		"products":    categoryProducts[offset:Min(offset+pageSize, totalRecords)],
 	})
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (product Product) DeleteProduct(c *fiber.Ctx) error {
@@ -247,7 +240,8 @@ func (product Product) DeleteProduct(c *fiber.Ctx) error {
 				"message": "Gönderi bulunamadı.",
 			})
 		}
-		username := getUserName(c)
+		username := Helpers.GetUserName(c)
+
 		if deleteProduct.SellerUserName == username {
 			if err := db.Delete(&deleteProduct).Error; err != nil {
 				return err
@@ -270,7 +264,7 @@ func (product Product) DeleteProduct(c *fiber.Ctx) error {
 func (product Product) ArchiveProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
-		username := getUserName(c)
+		username := Helpers.GetUserName(c)
 
 		db := database.DB.Db
 		postID := c.Params("id")
@@ -353,7 +347,7 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 	}
 
 	db := database.DB.Db
-	username := getUserName(c)
+	username := Helpers.GetUserName(c)
 
 	// Rating tablosunda kullanıcının daha önce bu ürüne puan verip vermediğini kontrol et
 	var existingRating Models.Rating
@@ -390,4 +384,11 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Ürüne başarıyla puan verdiniz.",
 	})
+}
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
