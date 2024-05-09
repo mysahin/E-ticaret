@@ -5,9 +5,9 @@ import (
 	"ETicaret/Helpers"
 	"ETicaret/Models"
 	"errors"
-	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
+	"math"
 	"strconv"
 )
 
@@ -49,21 +49,59 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
+
+		page, err := strconv.Atoi(c.Query("page", "1"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+		pageSize, err := strconv.Atoi(c.Query("pageSize", "5"))
+		if err != nil || pageSize < 1 {
+			pageSize = 10
+		}
+		offset := (page - 1) * pageSize
+
 		var products []Models.Product
 		username := getUserName(c)
-		if err := db.Find(&products, "seller_user_name=? AND archived=?", username, "0").Error; err != nil {
+		if err := db.Where("seller_user_name=? AND archived=?", username, "0").Find(&products).Error; err != nil {
+			return err
 		}
-		fmt.Println(getID(c))
-		return c.JSON(fiber.Map{
-			"Ürünleriniz": products,
-		})
+
+		totalRecords := len(products)
+
+		totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+		currentPage := page
+		if page > totalPages {
+			err := c.JSON(fiber.Map{
+				"Error": "Sayfa bulunamadı.",
+			})
+
+			return err
+
+		} else {
+			nextPage := currentPage + 1
+			if nextPage > totalPages {
+				nextPage = totalPages
+			}
+			prevPage := currentPage - 1
+			if prevPage < 1 {
+				prevPage = 1
+			}
+
+			return c.JSON(fiber.Map{
+				"totalPages":  totalPages,
+				"currentPage": currentPage,
+				"nextPage":    nextPage,
+				"prevPage":    prevPage,
+				"products":    products[offset:min(offset+pageSize, totalRecords)],
+			})
+		}
 	}
 
 	return c.JSON(fiber.Map{
 		"Warning": "Önce giriş yapmalısınız!",
 	})
-
 }
+
 func (product Product) ViewProductById(c *fiber.Ctx) error {
 	db := database.DB.Db
 	var products Models.Product
@@ -80,43 +118,121 @@ func (product Product) ViewProductById(c *fiber.Ctx) error {
 
 func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 	db := database.DB.Db
+
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(c.Query("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+	offset := (page - 1) * pageSize
+
 	var products []Models.Product
 	productType := c.Params("type")
-	if err := db.Find(&products, "type_id=? AND archived=?", productType, "0").Error; err != nil {
+	if err := db.Limit(pageSize).Offset(offset).Where("type_id = ? AND archived = ?", productType, "0").Find(&products).Error; err != nil {
+		return err
+	}
+
+	var totalRecords int64
+	if err := db.Model(&Models.Product{}).Where("type_id = ? AND archived = ?", productType, "0").Count(&totalRecords).Error; err != nil {
+		return err
+	}
+
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+	currentPage := page
+
+	// Geçersiz sayfa kontrolü
+	if currentPage > totalPages || currentPage < 1 {
 		return c.JSON(fiber.Map{
-			"error": err,
+			"Error": "Sayfa bulunamadı.",
 		})
 	}
 
+	nextPage := currentPage + 1
+	if nextPage > totalPages {
+		nextPage = totalPages
+	}
+	prevPage := currentPage - 1
+	if prevPage < 1 {
+		prevPage = 1
+	}
+
 	return c.JSON(fiber.Map{
-		"Ürünler": products,
+		"totalPages":  totalPages,
+		"currentPage": currentPage,
+		"nextPage":    nextPage,
+		"prevPage":    prevPage,
+		"products":    products,
 	})
 }
 
 func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 	db := database.DB.Db
+
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(c.Query("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+	offset := (page - 1) * pageSize
+
 	var categoryProducts []Models.Product
 	var types []Models.Type
+
 	productCategory := c.Params("category")
-	if err := db.Find(&types, "category_id=?", productCategory).Error; err != nil {
-		return c.JSON(fiber.Map{
-			"error": err,
-		})
+
+	if err := db.Where("category_id=?", productCategory).Find(&types).Error; err != nil {
+		return err
 	}
 
 	for _, x := range types {
 		var products []Models.Product
-		if err := db.Find(&products, "type_id=? AND archived=?", x.ID, "0").Error; err != nil {
-			return c.JSON(fiber.Map{
-				"error": err.Error(),
-			})
+		if err := db.Where("type_id=? AND archived=?", x.ID, "0").Find(&products).Error; err != nil {
+			return err
 		}
 		categoryProducts = append(categoryProducts, products...)
 	}
 
+	totalRecords := len(categoryProducts)
+
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+	currentPage := page
+
+	// Geçersiz sayfa kontrolü
+	if currentPage > totalPages || currentPage < 1 {
+		return c.JSON(fiber.Map{
+			"Error": "Sayfa bulunamadı.",
+		})
+	}
+
+	nextPage := currentPage + 1
+	if nextPage > totalPages {
+		nextPage = totalPages
+	}
+	prevPage := currentPage - 1
+	if prevPage < 1 {
+		prevPage = 1
+	}
+
 	return c.JSON(fiber.Map{
-		"Ürünler": categoryProducts,
+		"totalPages":  totalPages,
+		"currentPage": currentPage,
+		"nextPage":    nextPage,
+		"prevPage":    prevPage,
+		"products":    categoryProducts[offset:min(offset+pageSize, totalRecords)],
 	})
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (product Product) DeleteProduct(c *fiber.Ctx) error {

@@ -14,7 +14,7 @@ func Routes() *fiber.App {
 	r.Get("/signout", Controllers.Login{}.SignOut)
 	//Ürün işlemleri
 	r.Post("/add-product", Controllers.Product{}.AddProduct)                           //ekle
-	r.Get("/view-my-products", Controllers.Product{}.ViewMyProduct)                    //kendi ürünlerini görüntüle
+	r.Get("/view-my-products/", Controllers.Product{}.ViewMyProduct)                   //kendi ürünlerini görüntüle
 	r.Get("/view-product/:id", Controllers.Product{}.ViewProductById)                  //id ye göre tek ürün görüntüleme
 	r.Get("/view-by-type/:type", Controllers.Product{}.ViewProductsByType)             //tipe göre görüntüle
 	r.Get("/view-by-category/:category", Controllers.Product{}.ViewProductsByCategory) //kategoriye göre görüntüle
