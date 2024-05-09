@@ -2,13 +2,12 @@ package Router
 
 import (
 	"ETicaret/Controllers"
-	database "ETicaret/Database"
 	"github.com/gofiber/fiber/v2"
 )
 
 func Routes() *fiber.App {
 	r := fiber.New()
-	rdb := database.ConnectRedis()
+
 	//Login işlemleri
 	r.Post("/signup", Controllers.Login{}.SignUp)
 	r.Post("/signin", Controllers.Login{}.SignIn)
@@ -24,17 +23,9 @@ func Routes() *fiber.App {
 	r.Put("/edit-product", Controllers.Product{}.EditProduct)                          //düzenle
 	r.Put("/rate-product/:productID/:rating", Controllers.Product{}.RateProduct)
 	//Sepete ürün ekleme çıkarma işlemleri
-	r.Get("/view-cart", func(ctx *fiber.Ctx) error {
-		return Controllers.ViewCart(ctx, rdb)
-	})
-	r.Post("/add-cart/:productID", func(ctx *fiber.Ctx) error {
-		return Controllers.AddToCart(ctx, rdb)
-	})
-	r.Delete("/remove-cart/:productID", func(ctx *fiber.Ctx) error {
-		return Controllers.RemoveFromCart(ctx, rdb)
-	})
-	r.Put("/decrease-cart/:productID", func(ctx *fiber.Ctx) error {
-		return Controllers.DecreaseQuantityInCart(ctx, rdb)
-	})
+	r.Get("/view-cart", Controllers.ViewCart)                              //Sepettekileri görüntüle
+	r.Post("/add-cart/:productID", Controllers.AddToCart)                  //Sepete ekle
+	r.Delete("/remove-cart/:productID", Controllers.RemoveFromCart)        //Sepetten sil
+	r.Put("/decrease-cart/:productID", Controllers.DecreaseQuantityInCart) //Sepete eklenen ürünün sayısını düşür
 	return r
 }

@@ -114,7 +114,7 @@ func (login Login) SignOut(c *fiber.Ctx) error {
 
 		c.Cookie(&cookie)
 		return c.JSON(fiber.Map{
-			"message": "succeed to logout",
+			"message": "Başarıyla çıkış yapıldı",
 		})
 	}
 	return c.JSON(fiber.Map{

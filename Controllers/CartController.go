@@ -1,16 +1,16 @@
 package Controllers
 
 import (
+	database "ETicaret/Database"
 	"context"
 	"fmt"
-	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 )
 
 var ctx = context.Background()
 
-func AddToCart(c *fiber.Ctx, rdb *redis.Client) error {
-
+func AddToCart(c *fiber.Ctx) error {
+	rdb := database.ConnectRedis()
 	productID := c.Params("productID")
 	rdb.HIncrBy(ctx, "ProductInCart", productID, 1)
 
@@ -21,8 +21,9 @@ func AddToCart(c *fiber.Ctx, rdb *redis.Client) error {
 	})
 }
 
-func RemoveFromCart(c *fiber.Ctx, rdb *redis.Client) error {
+func RemoveFromCart(c *fiber.Ctx) error {
 	productID := c.Params("productID")
+	rdb := database.ConnectRedis()
 
 	err := rdb.HDel(c.Context(), "ProductInCart", productID).Err()
 	if err != nil {
@@ -34,8 +35,10 @@ func RemoveFromCart(c *fiber.Ctx, rdb *redis.Client) error {
 	})
 }
 
-func ViewCart(c *fiber.Ctx, rdb *redis.Client) error {
+func ViewCart(c *fiber.Ctx) error {
 	// Redis'ten tüm ürünleri al
+	rdb := database.ConnectRedis()
+
 	val, err := rdb.HGetAll(context.Background(), "ProductInCart").Result()
 	if err != nil {
 		fmt.Println(err)
@@ -47,8 +50,9 @@ func ViewCart(c *fiber.Ctx, rdb *redis.Client) error {
 	})
 }
 
-func DecreaseQuantityInCart(c *fiber.Ctx, rdb *redis.Client) error {
+func DecreaseQuantityInCart(c *fiber.Ctx) error {
 	productID := c.Params("productID")
+	rdb := database.ConnectRedis()
 
 	currentQuantity, err := rdb.HGet(ctx, "ProductInCart", productID).Int()
 	if err != nil {
