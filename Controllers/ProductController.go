@@ -6,6 +6,7 @@ import (
 	"ETicaret/Models"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"strconv"
 )
 
 type Product struct{}
@@ -216,5 +217,40 @@ func (product Product) EditProduct(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"Warning": "Lütfen giriş yapınız!",
+	})
+}
+
+func (product Product) RateProduct(c *fiber.Ctx) error {
+	productID := c.Params("productID")
+	rating, err := strconv.Atoi(c.Params("rating"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Geçersiz puanlama formatı",
+		})
+	}
+
+	// Ürünü veritabanından bul
+	var products Models.Product
+	if err := database.DB.Db.First(&products, "id = ?", productID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Ürün bulunamadı",
+		})
+	}
+
+	// Ürüne puan ver
+	products.ProductRating = (products.ProductRating*float64(products.NumberOfRatings) + float64(rating)) / float64(products.NumberOfRatings+1)
+	products.NumberOfRatings++
+
+	// Veritabanında güncelle
+	if err := database.DB.Db.Save(&products).Error; err != nil {
+		return err
+	}
+
+	return c.JSON(fiber.Map{
+		"message":           "Ürün başarıyla puanlandı.",
+		"product_id":        productID,
+		"rating":            rating,
+		"average_rating":    products.ProductRating,
+		"number_of_ratings": products.NumberOfRatings,
 	})
 }

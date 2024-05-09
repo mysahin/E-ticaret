@@ -22,6 +22,7 @@ func Routes() *fiber.App {
 	r.Post("/delete-product/:id", Controllers.Product{}.DeleteProduct)                 //sil
 	r.Put("/archive/:id", Controllers.Product{}.ArchiveProduct)                        //arşivle veya arşivden çıkar
 	r.Put("/edit-product", Controllers.Product{}.EditProduct)                          //düzenle
+	r.Put("/rate-product/:productID/:rating", Controllers.Product{}.RateProduct)
 	//Sepete ürün ekleme çıkarma işlemleri
 	r.Get("/view-cart", func(ctx *fiber.Ctx) error {
 		return Controllers.ViewCart(ctx, rdb)
