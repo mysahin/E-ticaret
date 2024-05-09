@@ -3,7 +3,9 @@ package Controllers
 import (
 	database "ETicaret/Database"
 	"context"
+	"errors"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -12,7 +14,39 @@ var ctx = context.Background()
 func AddToCart(c *fiber.Ctx) error {
 	rdb := database.ConnectRedis()
 	productID := c.Params("productID")
-	rdb.HIncrBy(ctx, "ProductInCart", productID, 1)
+	username := getUserName(c)
+
+	existingQuantity, err := rdb.HGet(ctx, username, productID).Int()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		err := c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if existingQuantity > 0 {
+		err := rdb.HIncrBy(ctx, username, productID, 1).Err()
+		if err != nil {
+			err := c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		err := rdb.HSet(ctx, username, productID, 1).Err()
+		if err != nil {
+			err := c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": err.Error(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return c.JSON(fiber.Map{
 		"Message":   "Ürün başarıyla eklendi.",
@@ -24,8 +58,8 @@ func AddToCart(c *fiber.Ctx) error {
 func RemoveFromCart(c *fiber.Ctx) error {
 	productID := c.Params("productID")
 	rdb := database.ConnectRedis()
-
-	err := rdb.HDel(c.Context(), "ProductInCart", productID).Err()
+	username := getUserName(c)
+	err := rdb.HDel(c.Context(), username, productID).Err()
 	if err != nil {
 		return err
 	}
@@ -36,10 +70,9 @@ func RemoveFromCart(c *fiber.Ctx) error {
 }
 
 func ViewCart(c *fiber.Ctx) error {
-	// Redis'ten tüm ürünleri al
 	rdb := database.ConnectRedis()
-
-	val, err := rdb.HGetAll(context.Background(), "ProductInCart").Result()
+	username := getUserName(c)
+	val, err := rdb.HGetAll(context.Background(), username).Result()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -53,18 +86,19 @@ func ViewCart(c *fiber.Ctx) error {
 func DecreaseQuantityInCart(c *fiber.Ctx) error {
 	productID := c.Params("productID")
 	rdb := database.ConnectRedis()
+	username := getUserName(c)
 
-	currentQuantity, err := rdb.HGet(ctx, "ProductInCart", productID).Int()
+	currentQuantity, err := rdb.HGet(ctx, username, productID).Int()
 	if err != nil {
 		return err
 	}
 	if currentQuantity > 1 {
-		err := rdb.HIncrBy(ctx, "ProductInCart", productID, -1).Err()
+		err := rdb.HIncrBy(ctx, username, productID, -1).Err()
 		if err != nil {
 			return err
 		}
 	} else {
-		err := rdb.HDel(ctx, "ProductInCart", productID).Err()
+		err := rdb.HDel(ctx, username, productID).Err()
 		if err != nil {
 			return err
 		}
