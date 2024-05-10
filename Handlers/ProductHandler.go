@@ -11,9 +11,7 @@ import (
 	"strconv"
 )
 
-type Product struct{}
-
-func (product Product) AddProduct(c *fiber.Ctx) error {
+func AddProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
@@ -41,11 +39,11 @@ func (product Product) AddProduct(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "hata",
+		"Warning": "Önce giriş yapınız!",
 	})
 }
 
-func (product Product) ViewMyProduct(c *fiber.Ctx) error {
+func ViewMyProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
@@ -102,7 +100,7 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) ViewProductById(c *fiber.Ctx) error {
+func ViewProductById(c *fiber.Ctx) error {
 	db := database.DB.Db
 	var products Models.Product
 	productId := c.Params("id")
@@ -116,7 +114,7 @@ func (product Product) ViewProductById(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) ViewProductsByType(c *fiber.Ctx) error {
+func ViewProductsByType(c *fiber.Ctx) error {
 	db := database.DB.Db
 
 	page, err := strconv.Atoi(c.Query("page", "1"))
@@ -168,7 +166,7 @@ func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
+func ViewProductsByCategory(c *fiber.Ctx) error {
 	db := database.DB.Db
 
 	page, err := strconv.Atoi(c.Query("page", "1"))
@@ -228,7 +226,7 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) DeleteProduct(c *fiber.Ctx) error {
+func DeleteProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
@@ -261,7 +259,7 @@ func (product Product) DeleteProduct(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) ArchiveProduct(c *fiber.Ctx) error {
+func ArchiveProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		username := Helpers.GetUserName(c)
@@ -298,7 +296,7 @@ func (product Product) ArchiveProduct(c *fiber.Ctx) error {
 	return c.JSON("lütfen giriş yapınız!!!")
 }
 
-func (product Product) EditProduct(c *fiber.Ctx) error {
+func EditProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
@@ -342,7 +340,7 @@ func (product Product) EditProduct(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) RateProduct(c *fiber.Ctx) error {
+func RateProduct(c *fiber.Ctx) error {
 	islogin := Helpers.IsLogin(c)
 	if islogin {
 		productID := c.Params("productID")
@@ -432,7 +430,7 @@ func Search(c *fiber.Ctx) error {
 	})
 }
 
-func (product Product) CommentProduct(c *fiber.Ctx) error {
+func CommentProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		productID := c.Params("productID")

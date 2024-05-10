@@ -13,17 +13,17 @@ func Routes() *fiber.App {
 	r.Post("/signin", Handlers.Login{}.SignIn)
 	r.Get("/signout", Handlers.Login{}.SignOut)
 	//Ürün işlemleri
-	r.Post("/add-product", Handlers.Product{}.AddProduct)                           //ekle
-	r.Get("/view-my-products/", Handlers.Product{}.ViewMyProduct)                   //kendi ürünlerini görüntüle
-	r.Get("/view-product/:id", Handlers.Product{}.ViewProductById)                  //id ye göre tek ürün görüntüleme
-	r.Get("/view-by-type/:type", Handlers.Product{}.ViewProductsByType)             //tipe göre görüntüle
-	r.Get("/view-by-category/:category", Handlers.Product{}.ViewProductsByCategory) //kategoriye göre görüntüle
-	r.Post("/delete-product/:id", Handlers.Product{}.DeleteProduct)                 //sil
-	r.Put("/archive/:id", Handlers.Product{}.ArchiveProduct)                        //arşivle veya arşivden çıkar
-	r.Put("/edit-product", Handlers.Product{}.EditProduct)                          //düzenle
-	r.Put("/rate-product/:productID/:rating", Handlers.Product{}.RateProduct)       //puan ver
-	r.Put("/comment-product/:productID/", Handlers.Product{}.CommentProduct)        //yorum yap
-	r.Get("/view-product-comments/:productId", Handlers.ViewProductComments)        //yorumlara bak
+	r.Post("/add-product", Handlers.AddProduct)                              //ekle
+	r.Get("/view-my-products/", Handlers.ViewMyProduct)                      //kendi ürünlerini görüntüle
+	r.Get("/view-product/:id", Handlers.ViewProductById)                     //id ye göre tek ürün görüntüleme
+	r.Get("/view-by-type/:type", Handlers.ViewProductsByType)                //tipe göre görüntüle
+	r.Get("/view-by-category/:category", Handlers.ViewProductsByCategory)    //kategoriye göre görüntüle
+	r.Post("/delete-product/:id", Handlers.DeleteProduct)                    //sil
+	r.Put("/archive/:id", Handlers.ArchiveProduct)                           //arşivle veya arşivden çıkar
+	r.Put("/edit-product", Handlers.EditProduct)                             //düzenle
+	r.Put("/rate-product/:productID/:rating", Handlers.RateProduct)          //puan ver
+	r.Put("/comment-product/:productID/", Handlers.CommentProduct)           //yorum yap
+	r.Get("/view-product-comments/:productId", Handlers.ViewProductComments) //yorumlara bak
 	//Sepete ürün ekleme çıkarma işlemleri
 	r.Get("/view-cart", Handlers.ViewCart)                              //Sepettekileri görüntüle
 	r.Post("/add-cart/:productID", Handlers.AddToCart)                  //Sepete ekle
