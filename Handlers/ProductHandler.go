@@ -302,28 +302,38 @@ func (product Product) EditProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
 		db := database.DB.Db
+		username := Helpers.GetUserName(c)
 		editedProduct := new(Models.Product)
+		checkProduct := new(Models.Product)
 		if err := c.BodyParser(&editedProduct); err != nil {
 			return err
 		}
-		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_statement", editedProduct.ProductStatement).Error; err != nil {
+		if err := db.First(&checkProduct).Error; err != nil {
 			return err
 		}
-		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_title", editedProduct.ProductTitle).Error; err != nil {
-			return err
-		}
-		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_name", editedProduct.ProductName).Error; err != nil {
-			return err
-		}
-		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_price", editedProduct.ProductPrice).Error; err != nil {
-			return err
-		}
-		if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_count", editedProduct.ProductCount).Error; err != nil {
-			return err
+		if checkProduct.SellerUserName == username {
+			if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_statement", editedProduct.ProductStatement).Error; err != nil {
+				return err
+			}
+			if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_title", editedProduct.ProductTitle).Error; err != nil {
+				return err
+			}
+			if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_name", editedProduct.ProductName).Error; err != nil {
+				return err
+			}
+			if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_price", editedProduct.ProductPrice).Error; err != nil {
+				return err
+			}
+			if err := db.Model(&editedProduct).Where("id=?", editedProduct.ID).Update("product_count", editedProduct.ProductCount).Error; err != nil {
+				return err
+			}
+			return c.JSON(fiber.Map{
+				"message": "Ürün başarıyla güncellendi.",
+				"product": editedProduct,
+			})
 		}
 		return c.JSON(fiber.Map{
-			"message": "Ürün başarıyla güncellendi.",
-			"product": editedProduct,
+			"Warning": "Ürünün satıcısı siz değilsiniz!",
 		})
 	}
 
@@ -333,52 +343,58 @@ func (product Product) EditProduct(c *fiber.Ctx) error {
 }
 
 func (product Product) RateProduct(c *fiber.Ctx) error {
-	productID := c.Params("productID")
-	rating, err := strconv.Atoi(c.Params("rating"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Geçersiz puanlama formatı",
-		})
-	}
+	islogin := Helpers.IsLogin(c)
+	if islogin {
+		productID := c.Params("productID")
+		rating, err := strconv.Atoi(c.Params("rating"))
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Geçersiz puanlama formatı",
+			})
+		}
 
-	uIntID, err := strconv.ParseUint(productID, 10, 64)
-	if err != nil {
-		return err
-	}
+		uIntID, err := strconv.ParseUint(productID, 10, 64)
+		if err != nil {
+			return err
+		}
 
-	db := database.DB.Db
-	username := Helpers.GetUserName(c)
+		db := database.DB.Db
+		username := Helpers.GetUserName(c)
 
-	var existingRating Models.Rating
-	if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingRating).Error; err == nil {
+		var existingRating Models.Rating
+		if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingRating).Error; err == nil {
+			return c.JSON(fiber.Map{
+				"message": "Bu ürüne zaten puan verdiniz.",
+			})
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		newRating := Models.Rating{
+			ProductId: uIntID,
+			Username:  username,
+			Rating:    rating,
+		}
+
+		if err := db.Create(&newRating).Error; err != nil {
+			return err
+		}
+
+		var averageRating float64
+		if err := db.Model(&Models.Rating{}).Where("product_id = ?", productID).Select("AVG(rating) as average_rating").Scan(&averageRating).Error; err != nil {
+			return err
+		}
+
+		if err := db.Model(&Models.Product{}).Where("id = ?", productID).Update("product_rating", averageRating).Error; err != nil {
+			return err
+		}
+
 		return c.JSON(fiber.Map{
-			"message": "Bu ürüne zaten puan verdiniz.",
+			"message": "Ürüne başarıyla puan verdiniz.",
 		})
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
 	}
-
-	newRating := Models.Rating{
-		ProductId: uIntID,
-		Username:  username,
-		Rating:    rating,
-	}
-
-	if err := db.Create(&newRating).Error; err != nil {
-		return err
-	}
-
-	var averageRating float64
-	if err := db.Model(&Models.Rating{}).Where("product_id = ?", productID).Select("AVG(rating) as average_rating").Scan(&averageRating).Error; err != nil {
-		return err
-	}
-
-	if err := db.Model(&Models.Product{}).Where("id = ?", productID).Update("product_rating", averageRating).Error; err != nil {
-		return err
-	}
-
 	return c.JSON(fiber.Map{
-		"message": "Ürüne başarıyla puan verdiniz.",
+		"error": "Lütfen önce giriş yapınız.",
 	})
 }
 
@@ -417,42 +433,48 @@ func Search(c *fiber.Ctx) error {
 }
 
 func (product Product) CommentProduct(c *fiber.Ctx) error {
-	productID := c.Params("productID")
-	comment := new(Models.Comment)
-	if err := c.BodyParser(comment); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-	uIntID, err := strconv.ParseUint(productID, 10, 64)
-	if err != nil {
-		return err
-	}
+	isLogin := Helpers.IsLogin(c)
+	if isLogin {
+		productID := c.Params("productID")
+		comment := new(Models.Comment)
+		if err := c.BodyParser(comment); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		uIntID, err := strconv.ParseUint(productID, 10, 64)
+		if err != nil {
+			return err
+		}
 
-	db := database.DB.Db
-	username := Helpers.GetUserName(c)
+		db := database.DB.Db
+		username := Helpers.GetUserName(c)
 
-	var existingComment Models.Comment
-	if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingComment).Error; err == nil {
+		var existingComment Models.Comment
+		if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingComment).Error; err == nil {
+			return c.JSON(fiber.Map{
+				"message": "Bu ürüne zaten yorum yaptınız.",
+			})
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		newComment := Models.Comment{
+			ProductId: uIntID,
+			Username:  username,
+			Comment:   comment.Comment,
+		}
+
+		if err := db.Create(&newComment).Error; err != nil {
+			return err
+		}
+
 		return c.JSON(fiber.Map{
-			"message": "Bu ürüne zaten yorum yaptınız.",
+			"message": "Ürüne başarıyla yorum yaptınız.",
 		})
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
 	}
-
-	newComment := Models.Comment{
-		ProductId: uIntID,
-		Username:  username,
-		Comment:   comment.Comment,
-	}
-
-	if err := db.Create(&newComment).Error; err != nil {
-		return err
-	}
-
 	return c.JSON(fiber.Map{
-		"message": "Ürüne başarıyla yorum yaptınız.",
+		"error": "Önce giriş yapınız.",
 	})
 }
 
