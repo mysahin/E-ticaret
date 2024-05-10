@@ -22,7 +22,8 @@ func Routes() *fiber.App {
 	r.Put("/archive/:id", Handlers.Product{}.ArchiveProduct)                        //arşivle veya arşivden çıkar
 	r.Put("/edit-product", Handlers.Product{}.EditProduct)                          //düzenle
 	r.Put("/rate-product/:productID/:rating", Handlers.Product{}.RateProduct)       //puan ver
-	r.Put("/rate-product/:productID/:comment", Handlers.Product{}.CommentProduct)   //yorum yap
+	r.Put("/comment-product/:productID/", Handlers.Product{}.CommentProduct)        //yorum yap
+	r.Get("/view-product-comments/:productId", Handlers.ViewProductComments)        //yorumlara bak
 	//Sepete ürün ekleme çıkarma işlemleri
 	r.Get("/view-cart", Handlers.ViewCart)                              //Sepettekileri görüntüle
 	r.Post("/add-cart/:productID", Handlers.AddToCart)                  //Sepete ekle

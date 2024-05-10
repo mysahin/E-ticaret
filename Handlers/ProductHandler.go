@@ -418,8 +418,12 @@ func Search(c *fiber.Ctx) error {
 
 func (product Product) CommentProduct(c *fiber.Ctx) error {
 	productID := c.Params("productID")
-	comment := c.Params("comment")
-
+	comment := new(Models.Comment)
+	if err := c.BodyParser(comment); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 	uIntID, err := strconv.ParseUint(productID, 10, 64)
 	if err != nil {
 		return err
@@ -440,7 +444,7 @@ func (product Product) CommentProduct(c *fiber.Ctx) error {
 	newComment := Models.Comment{
 		ProductId: uIntID,
 		Username:  username,
-		Comment:   comment,
+		Comment:   comment.Comment,
 	}
 
 	if err := db.Create(&newComment).Error; err != nil {
@@ -452,6 +456,57 @@ func (product Product) CommentProduct(c *fiber.Ctx) error {
 	})
 }
 
+func ViewProductComments(c *fiber.Ctx) error {
+	db := database.DB.Db
+
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(c.Query("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+	offset := (page - 1) * pageSize
+
+	var comments []Models.Comment
+	productId := c.Params("productId")
+	if err := db.Limit(pageSize).Offset(offset).Where("product_id = ?", productId).Find(&comments).Error; err != nil {
+		return err
+	}
+
+	var totalRecords int64
+	if err := db.Model(&Models.Comment{}).Where("product_id = ? ", productId).Count(&totalRecords).Error; err != nil {
+		return err
+	}
+
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+	currentPage := page
+
+	// Geçersiz sayfa kontrolü
+	if currentPage > totalPages {
+		return c.JSON(fiber.Map{
+			"Error": "Sayfa bulunamadı.",
+		})
+	}
+
+	nextPage := currentPage + 1
+	if nextPage > totalPages {
+		nextPage = totalPages
+	}
+	prevPage := currentPage - 1
+	if prevPage < 1 {
+		prevPage = 1
+	}
+
+	return c.JSON(fiber.Map{
+		"totalPages":  totalPages,
+		"currentPage": currentPage,
+		"nextPage":    nextPage,
+		"prevPage":    prevPage,
+		"comments":    comments,
+	})
+}
 func Min(a, b int) int {
 	if a < b {
 		return a
