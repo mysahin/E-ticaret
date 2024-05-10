@@ -2,6 +2,7 @@ package Controllers
 
 import (
 	database "ETicaret/Database"
+	"ETicaret/Helpers"
 	"context"
 	"errors"
 	"fmt"
@@ -14,7 +15,7 @@ var ctx = context.Background()
 func AddToCart(c *fiber.Ctx) error {
 	rdb := database.ConnectRedis()
 	productID := c.Params("productID")
-	username := getUserName(c)
+	username := Helpers.GetUserName(c)
 
 	existingQuantity, err := rdb.HGet(ctx, username, productID).Int()
 	if err != nil && !errors.Is(err, redis.Nil) {
@@ -58,7 +59,7 @@ func AddToCart(c *fiber.Ctx) error {
 func RemoveFromCart(c *fiber.Ctx) error {
 	productID := c.Params("productID")
 	rdb := database.ConnectRedis()
-	username := getUserName(c)
+	username := Helpers.GetUserName(c)
 	err := rdb.HDel(c.Context(), username, productID).Err()
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func RemoveFromCart(c *fiber.Ctx) error {
 
 func ViewCart(c *fiber.Ctx) error {
 	rdb := database.ConnectRedis()
-	username := getUserName(c)
+	username := Helpers.GetUserName(c)
 	val, err := rdb.HGetAll(context.Background(), username).Result()
 	if err != nil {
 		fmt.Println(err)
@@ -86,7 +87,7 @@ func ViewCart(c *fiber.Ctx) error {
 func DecreaseQuantityInCart(c *fiber.Ctx) error {
 	productID := c.Params("productID")
 	rdb := database.ConnectRedis()
-	username := getUserName(c)
+	username := Helpers.GetUserName(c)
 
 	currentQuantity, err := rdb.HGet(ctx, username, productID).Int()
 	if err != nil {

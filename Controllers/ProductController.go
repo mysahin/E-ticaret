@@ -62,7 +62,7 @@ func (product Product) ViewMyProduct(c *fiber.Ctx) error {
 
 		var products []Models.Product
 		username := Helpers.GetUserName(c)
-		if err := db.Where("seller_user_name=? AND archived=?", username, "0").Find(&products).Error; err != nil {
+		if err := db.Where("seller_user_name=?", username).Find(&products).Error; err != nil {
 			return err
 		}
 
@@ -169,6 +169,8 @@ func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 }
 
 func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
+	db := database.DB.Db
+
 	page, err := strconv.Atoi(c.Query("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
@@ -179,14 +181,29 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * pageSize
 
+	var categoryProducts []Models.Product
+	var types []Models.Type
+
 	productCategory := c.Params("category")
 
-	categoryProducts := GetByCat(c, productCategory)
+	if err := db.Where("category_id=?", productCategory).Find(&types).Error; err != nil {
+		return err
+	}
+
+	for _, x := range types {
+		var products []Models.Product
+		if err := db.Where("type_id=? AND archived=?", x.ID, "0").Find(&products).Error; err != nil {
+			return err
+		}
+		categoryProducts = append(categoryProducts, products...)
+	}
+
 	totalRecords := len(categoryProducts)
 
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
 	currentPage := page
 
+	// Geçersiz sayfa kontrolü
 	if currentPage > totalPages {
 		return c.JSON(fiber.Map{
 			"Error": "Sayfa bulunamadı.",
@@ -366,24 +383,43 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 }
 
 func Search(c *fiber.Ctx) error {
+	// Aranan kelimeyi al
 	searchTerm := c.Query("search")
 
-	var searchResults []struct {
-		Product  Models.Product
-		Category Models.Category
-		Type     Models.Type
+	// Arama kelimesinin uzunluğunu kontrol et
+	if len(searchTerm) < 3 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Arama kelimesi en az 3 harf içermelidir.",
+		})
 	}
 
-	db := database.DB.Db
-	db.Table("products").
-		Select("products.*, categories.category_name, types.type_name").
-		Joins("JOIN categories ON products.category_id = categories.id").
-		Joins("JOIN types ON products.type_id = types.id").
-		Where("products.product_name LIKE ? OR products.product_statement LIKE ? OR categories.category_name LIKE ? OR types.type_name LIKE ?", "%"+searchTerm+"%", "%"+searchTerm+"%", "%"+searchTerm+"%", "%"+searchTerm+"%").
-		Find(&searchResults)
+	// Arama kelimesini "%" ile başlat ve bitir
+	searchTerm = "%" + searchTerm + "%"
 
+	// Kategoriler tablosunda arama yap
+	var categories []Models.Category
+	db := database.DB.Db
+	if err := db.Where("name ILIKE ?", searchTerm).Find(&categories).Error; err != nil {
+		categories = nil
+	}
+
+	// Tipler tablosunda arama yap
+	var types []Models.Type
+	if err := db.Where("name ILIKE ?", searchTerm).Find(&types).Error; err != nil {
+		types = nil
+	}
+
+	// Ürünler tablosunda arama yap
+	var products []Models.Product
+	if err := db.Where("product_title ILIKE ?", searchTerm).Find(&products).Error; err != nil {
+		products = nil
+	}
+
+	// Sonuçları JSON olarak döndür
 	return c.JSON(fiber.Map{
-		"search_results": searchResults,
+		"categories": categories,
+		"types":      types,
+		"products":   products,
 	})
 }
 
@@ -392,34 +428,4 @@ func Min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func GetByCat(c *fiber.Ctx, categoryId string) []Models.Product {
-	db := database.DB.Db
-	var categoryProducts []Models.Product
-	var types []Models.Type
-	if err := db.Where("category_id=?", categoryProducts).Find(&types).Error; err != nil {
-		err := c.JSON(fiber.Map{
-			"error": err.Error(),
-		})
-		if err != nil {
-			return nil
-		}
-		return nil
-	}
-
-	for _, x := range types {
-		var products []Models.Product
-		if err := db.Where("type_id=? AND archived=?", x.ID, "0").Find(&products).Error; err != nil {
-			err := c.JSON(fiber.Map{
-				"error": err.Error(),
-			})
-			if err != nil {
-				return nil
-			}
-			return nil
-		}
-		categoryProducts = append(categoryProducts, products...)
-	}
-	return categoryProducts
 }

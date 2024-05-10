@@ -27,5 +27,8 @@ func Routes() *fiber.App {
 	r.Post("/add-cart/:productID", Controllers.AddToCart)                  //Sepete ekle
 	r.Delete("/remove-cart/:productID", Controllers.RemoveFromCart)        //Sepetten sil
 	r.Put("/decrease-cart/:productID", Controllers.DecreaseQuantityInCart) //Sepete eklenen ürünün sayısını düşür
+	//Diğer işlemler
+	r.Get("/search/", Controllers.Search)
+
 	return r
 }
