@@ -1,4 +1,4 @@
-package Controllers
+package Handlers
 
 import (
 	database "ETicaret/Database"

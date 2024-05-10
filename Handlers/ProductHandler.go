@@ -1,4 +1,4 @@
-package Controllers
+package Handlers
 
 import (
 	database "ETicaret/Database"
@@ -383,43 +383,72 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 }
 
 func Search(c *fiber.Ctx) error {
-	// Aranan kelimeyi al
 	searchTerm := c.Query("search")
 
-	// Arama kelimesinin uzunluğunu kontrol et
 	if len(searchTerm) < 3 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Arama kelimesi en az 3 harf içermelidir.",
 		})
 	}
 
-	// Arama kelimesini "%" ile başlat ve bitir
 	searchTerm = "%" + searchTerm + "%"
 
-	// Kategoriler tablosunda arama yap
 	var categories []Models.Category
 	db := database.DB.Db
 	if err := db.Where("name ILIKE ?", searchTerm).Find(&categories).Error; err != nil {
 		categories = nil
 	}
 
-	// Tipler tablosunda arama yap
 	var types []Models.Type
 	if err := db.Where("name ILIKE ?", searchTerm).Find(&types).Error; err != nil {
 		types = nil
 	}
 
-	// Ürünler tablosunda arama yap
 	var products []Models.Product
 	if err := db.Where("product_title ILIKE ?", searchTerm).Find(&products).Error; err != nil {
 		products = nil
 	}
 
-	// Sonuçları JSON olarak döndür
 	return c.JSON(fiber.Map{
 		"categories": categories,
 		"types":      types,
 		"products":   products,
+	})
+}
+
+func (product Product) CommentProduct(c *fiber.Ctx) error {
+	productID := c.Params("productID")
+	comment := c.Params("comment")
+
+	uIntID, err := strconv.ParseUint(productID, 10, 64)
+	if err != nil {
+		return err
+	}
+
+	db := database.DB.Db
+	username := Helpers.GetUserName(c)
+
+	var existingComment Models.Comment
+	if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingComment).Error; err == nil {
+		return c.JSON(fiber.Map{
+			"message": "Bu ürüne zaten yorum yaptınız.",
+		})
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	newComment := Models.Comment{
+		ProductId: uIntID,
+		Username:  username,
+		Comment:   comment,
+	}
+
+	if err := db.Create(&newComment).Error; err != nil {
+		return err
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Ürüne başarıyla yorum yaptınız.",
 	})
 }
 
