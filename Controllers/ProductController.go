@@ -169,8 +169,6 @@ func (product Product) ViewProductsByType(c *fiber.Ctx) error {
 }
 
 func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
-	db := database.DB.Db
-
 	page, err := strconv.Atoi(c.Query("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
@@ -181,29 +179,14 @@ func (product Product) ViewProductsByCategory(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * pageSize
 
-	var categoryProducts []Models.Product
-	var types []Models.Type
-
 	productCategory := c.Params("category")
 
-	if err := db.Where("category_id=?", productCategory).Find(&types).Error; err != nil {
-		return err
-	}
-
-	for _, x := range types {
-		var products []Models.Product
-		if err := db.Where("type_id=? AND archived=?", x.ID, "0").Find(&products).Error; err != nil {
-			return err
-		}
-		categoryProducts = append(categoryProducts, products...)
-	}
-
+	categoryProducts := GetByCat(c, productCategory)
 	totalRecords := len(categoryProducts)
 
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
 	currentPage := page
 
-	// Geçersiz sayfa kontrolü
 	if currentPage > totalPages {
 		return c.JSON(fiber.Map{
 			"Error": "Sayfa bulunamadı.",
@@ -349,7 +332,6 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 	db := database.DB.Db
 	username := Helpers.GetUserName(c)
 
-	// Rating tablosunda kullanıcının daha önce bu ürüne puan verip vermediğini kontrol et
 	var existingRating Models.Rating
 	if err := db.Where("username = ? AND product_id = ?", username, uIntID).First(&existingRating).Error; err == nil {
 		return c.JSON(fiber.Map{
@@ -359,7 +341,6 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Yeni bir rating oluştur
 	newRating := Models.Rating{
 		ProductId: uIntID,
 		Username:  username,
@@ -370,13 +351,11 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 		return err
 	}
 
-	// Rating tablosunda, verilen ürün ID'sine sahip rating'lerin ortalamasını al
 	var averageRating float64
 	if err := db.Model(&Models.Rating{}).Where("product_id = ?", productID).Select("AVG(rating) as average_rating").Scan(&averageRating).Error; err != nil {
 		return err
 	}
 
-	// Ürünün rating'ini güncelle
 	if err := db.Model(&Models.Product{}).Where("id = ?", productID).Update("product_rating", averageRating).Error; err != nil {
 		return err
 	}
@@ -386,9 +365,61 @@ func (product Product) RateProduct(c *fiber.Ctx) error {
 	})
 }
 
+func Search(c *fiber.Ctx) error {
+	searchTerm := c.Query("search")
+
+	var searchResults []struct {
+		Product  Models.Product
+		Category Models.Category
+		Type     Models.Type
+	}
+
+	db := database.DB.Db
+	db.Table("products").
+		Select("products.*, categories.category_name, types.type_name").
+		Joins("JOIN categories ON products.category_id = categories.id").
+		Joins("JOIN types ON products.type_id = types.id").
+		Where("products.product_name LIKE ? OR products.product_statement LIKE ? OR categories.category_name LIKE ? OR types.type_name LIKE ?", "%"+searchTerm+"%", "%"+searchTerm+"%", "%"+searchTerm+"%", "%"+searchTerm+"%").
+		Find(&searchResults)
+
+	return c.JSON(fiber.Map{
+		"search_results": searchResults,
+	})
+}
+
 func Min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
+}
+
+func GetByCat(c *fiber.Ctx, categoryId string) []Models.Product {
+	db := database.DB.Db
+	var categoryProducts []Models.Product
+	var types []Models.Type
+	if err := db.Where("category_id=?", categoryProducts).Find(&types).Error; err != nil {
+		err := c.JSON(fiber.Map{
+			"error": err.Error(),
+		})
+		if err != nil {
+			return nil
+		}
+		return nil
+	}
+
+	for _, x := range types {
+		var products []Models.Product
+		if err := db.Where("type_id=? AND archived=?", x.ID, "0").Find(&products).Error; err != nil {
+			err := c.JSON(fiber.Map{
+				"error": err.Error(),
+			})
+			if err != nil {
+				return nil
+			}
+			return nil
+		}
+		categoryProducts = append(categoryProducts, products...)
+	}
+	return categoryProducts
 }

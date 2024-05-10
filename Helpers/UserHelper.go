@@ -28,7 +28,7 @@ func IsLogin(c *fiber.Ctx) bool {
 
 }
 
-func getID(c *fiber.Ctx) string {
+func GetID(c *fiber.Ctx) string {
 	cookie := c.Cookies("jwt")
 	token, err := jwt.ParseWithClaims(cookie, &jwt.StandardClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(SecretKey), nil
