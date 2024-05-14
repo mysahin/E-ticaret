@@ -100,6 +100,59 @@ func ViewMyProduct(c *fiber.Ctx) error {
 	})
 }
 
+func ViewProductBySeller(c *fiber.Ctx) error {
+	db := database.DB.Db
+
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(c.Query("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+	offset := (page - 1) * pageSize
+
+	var products []Models.Product
+	productSeller := c.Params("seller")
+	if err := db.Limit(pageSize).Offset(offset).Where("seller_username = ? AND archived = ?", productSeller, "0").Find(&products).Error; err != nil {
+		return err
+	}
+
+	var totalRecords int64
+	if err := db.Model(&Models.Product{}).Where("seller_username = ? AND archived = ?", productSeller, "0").Count(&totalRecords).Error; err != nil {
+		return err
+	}
+
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+	currentPage := page
+
+	// Geçersiz sayfa kontrolü
+	if currentPage > totalPages {
+		return c.JSON(fiber.Map{
+			"Error": "Sayfa bulunamadı.",
+		})
+	}
+
+	nextPage := currentPage + 1
+	if nextPage > totalPages {
+		nextPage = totalPages
+	}
+	prevPage := currentPage - 1
+	if prevPage < 1 {
+		prevPage = 1
+	}
+
+	return c.JSON(fiber.Map{
+		"Seller":      productSeller,
+		"totalPages":  totalPages,
+		"currentPage": currentPage,
+		"nextPage":    nextPage,
+		"prevPage":    prevPage,
+		"products":    products,
+	})
+}
+
 func ViewProductById(c *fiber.Ctx) error {
 	db := database.DB.Db
 	var products Models.Product
@@ -430,6 +483,90 @@ func Search(c *fiber.Ctx) error {
 	})
 }
 
+func SearchPageCategorie(c *fiber.Ctx) error {
+	db := database.DB.Db
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(c.Query("pageSize", "10"))
+	if err != nil || pageSize < 1 {
+		pageSize = 10
+	}
+	offset := (page - 1) * pageSize
+
+	var categoryProducts []Models.Product
+	var types []Models.Type
+
+	productCategory := c.Params("category")
+	searchTerm := c.Query("search")
+
+	if err := db.Where("category_id=?", productCategory).Find(&types).Error; err != nil {
+		return err
+	}
+
+	for _, x := range types {
+
+		var products []Models.Product
+		if err := db.Where("type_id=? AND archived=? AND product_title ILIKE", x.ID, "0", searchTerm).Find(&products).Error; err != nil {
+			return err
+		}
+		categoryProducts = append(categoryProducts, products...)
+	}
+
+	totalRecords := len(categoryProducts)
+
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
+	currentPage := page
+
+	// Geçersiz sayfa kontrolü
+	if currentPage > totalPages {
+		return c.JSON(fiber.Map{
+			"Error": "Sayfa bulunamadı.",
+		})
+	}
+
+	nextPage := currentPage + 1
+	if nextPage > totalPages {
+		nextPage = totalPages
+	}
+	prevPage := currentPage - 1
+	if prevPage < 1 {
+		prevPage = 1
+	}
+
+	return c.JSON(fiber.Map{
+		"totalPages":  totalPages,
+		"currentPage": currentPage,
+		"nextPage":    nextPage,
+		"prevPage":    prevPage,
+		"products":    categoryProducts[offset:Min(offset+pageSize, totalRecords)],
+	})
+}
+
+func SearchPageType(c *fiber.Ctx) error {
+	searchTerm := c.Query("search")
+	types := c.Query("type")
+
+	if len(searchTerm) < 3 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Arama kelimesi en az 3 harf içermelidir.",
+		})
+	}
+
+	searchTerm = "%" + searchTerm + "%"
+
+	db := database.DB.Db
+	var products []Models.Product
+	if err := db.Where("product_title ILIKE ? AND product_type ILIKE ?", searchTerm, types).Find(&products).Error; err != nil {
+		products = nil
+	}
+
+	return c.JSON(fiber.Map{
+		"products": products,
+	})
+}
+
 func CommentProduct(c *fiber.Ctx) error {
 	isLogin := Helpers.IsLogin(c)
 	if isLogin {
@@ -502,8 +639,6 @@ func ViewProductComments(c *fiber.Ctx) error {
 
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
 	currentPage := page
-
-	// Geçersiz sayfa kontrolü
 	if currentPage > totalPages {
 		return c.JSON(fiber.Map{
 			"Error": "Sayfa bulunamadı.",
