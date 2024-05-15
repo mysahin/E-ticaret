@@ -34,8 +34,8 @@ func Routes() *fiber.App {
 	r.Put("/decrease-cart/:productID", Handlers.DecreaseQuantityInCart) //Sepete eklenen ürünün sayısını düşür
 
 	//Diğer işlemler
-	r.Get("/search/", Handlers.Search)
+	r.Get("/home-page/", Handlers.HomePage)                      //arama ve ana sayfa
 	r.Get("/search-by-categories", Handlers.SearchPageCategorie) //Arama sonuçları filtreleme
-	r.Get("search-by-type", Handlers.SearchPageType)             //Arama sonucu filtreleme (tip)
+	r.Get("/search-by-type", Handlers.SearchPageType)            //Arama sonucu filtreleme (tip)
 	return r
 }
