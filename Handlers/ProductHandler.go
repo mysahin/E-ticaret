@@ -452,12 +452,6 @@ func RateProduct(c *fiber.Ctx) error {
 func HomePage(c *fiber.Ctx) error {
 	searchTerm := c.Query("search")
 
-	if len(searchTerm) < 3 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Arama kelimesi en az 3 harf içermelidir.",
-		})
-	}
-
 	db := database.DB.Db
 
 	page, err := strconv.Atoi(c.Query("page", "1"))
@@ -470,6 +464,7 @@ func HomePage(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * pageSize
 
+	searchTerm = "%" + searchTerm + "%"
 	var products []Models.Product
 	if err := db.Limit(pageSize).Offset(offset).Where("product_title ILIKE ? AND archived = ? ", searchTerm, "0").Find(&products).Error; err != nil {
 		return err
@@ -480,26 +475,20 @@ func HomePage(c *fiber.Ctx) error {
 		return err
 	}
 
-	searchTerm = "%" + searchTerm + "%"
-
 	var categories []Models.Category
+	var types []Models.Type
+
+	// Kategori ve tipleri ayrı ayrı ara
 	if err := db.Where("name ILIKE ?", searchTerm).Find(&categories).Error; err != nil {
-		categories = nil
+		return err
 	}
 
-	var types []Models.Type
 	if err := db.Where("name ILIKE ?", searchTerm).Find(&types).Error; err != nil {
-		types = nil
+		return err
 	}
 
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(pageSize)))
 	currentPage := page
-
-	if currentPage > totalPages {
-		return c.JSON(fiber.Map{
-			"Error": "Sayfa bulunamadı.",
-		})
-	}
 
 	nextPage := currentPage + 1
 	if nextPage > totalPages {
@@ -516,6 +505,8 @@ func HomePage(c *fiber.Ctx) error {
 		"nextPage":    nextPage,
 		"prevPage":    prevPage,
 		"products":    products,
+		"categories":  categories,
+		"types":       types,
 	})
 }
 
