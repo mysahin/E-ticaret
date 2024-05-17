@@ -45,5 +45,5 @@ func init() {
 }
 
 var region string = "eu-north-1"
-var accessKey string = "AKIAQ3EGTZABT7PRWHUS"
-var secretKey string = "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"
+var accessKey string = ""
+var secretKey string = ""
