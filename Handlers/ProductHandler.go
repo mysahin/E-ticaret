@@ -66,18 +66,23 @@ func AddProduct(c *fiber.Ctx) error {
 		SellerUserName:   userName,
 		ProductCount:     addedProduct.ProductCount,
 	}
-	id := uint64(newProduct.ID)
-
-	// Ürün ID'sini al ve newFileName'e ata
-	newFileName := strconv.FormatUint(id, 10)
-	Controllers.NewFileController(Uploader, Downloader, BucketName).UploadFile(c, newFileName)
 	db := database.DB.Db
 	if err := db.Create(&newProduct).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Ürün kaydedilirken bir hata oluştu: " + err.Error(),
 		})
 	}
-
+	if err := db.Find(&newProduct).Error; err != nil {
+		return err
+	}
+	id := int(newProduct.ID)
+	fileUrl, errr := Controllers.NewFileController(Uploader, Downloader, BucketName).UploadFile(c, strconv.Itoa(id))
+	if errr != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{})
+	}
+	if err := db.Model(&newProduct).Where("").Update("image_url", fileUrl).Error; err != nil {
+		return err
+	}
 	// Başarılı yanıt gönder
 	return c.JSON(fiber.Map{
 		"message": "Yeni ürün başarıyla eklendi.",

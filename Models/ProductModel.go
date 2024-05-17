@@ -13,5 +13,5 @@ type Product struct {
 	ProductCount     int     `json:"product_count"`
 	Archived         bool    `json:"archived"`
 	ProductRating    float64 `json:"product_rating"`
-	ProductUrl       string  `json:"product_url"`
+	ImageUrl         string  `json:"image_url"`
 }

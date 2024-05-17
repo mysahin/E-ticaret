@@ -3,6 +3,7 @@ package Controllers
 import (
 	database "ETicaret/Database"
 	"ETicaret/Models"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -52,18 +53,12 @@ func (fc *FileController) UploadFile(c *fiber.Ctx, newFileName string) (string, 
 		}
 		defer f.Close()
 
-		uploadedURL, err := fc.saveFile(f, newFileName)
+		uploadedURL, err := fc.saveFile(f, fileHeader.Filename, newFileName)
 		if err != nil {
 			return "", c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 
 		uploadedURLs = append(uploadedURLs, uploadedURL)
-		uploadedFile.FileName = fileHeader.Filename
-		fixedName, errorr := fixFileName(newFileName)
-		if errorr != nil {
-			return "", c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": errorr.Error()})
-		}
-		uploadedFile.FileName = fixedName
 		if err := db.Create(&uploadedFile).Error; err != nil {
 			return "", err
 		}
@@ -73,36 +68,37 @@ func (fc *FileController) UploadFile(c *fiber.Ctx, newFileName string) (string, 
 	return uploadedURLs[0], c.Status(http.StatusOK).JSON(fiber.Map{"urls": uploadedURLs})
 }
 
-// fixFileName replaces special characters in filenames.
-func fixFileName(filename string) (string, error) {
-	/*allowedExtensions := map[string]bool{
-		".jpg":  true,
-		".jpeg": true,
-		".png":  true,
-		".gif":  true,
-		".bmp":  true,
-		".svg":  true,
-	}*/
+// fixFileName replaces special characters in filenames and ensures it's an image file.
+func fixFileName(filename string, productId string) (string, error) {
+	if len(filename) >= 4 {
+		lastFour := filename[len(filename)-4:]
+		if lastFour == ".jpg" {
+			filename = productId + ".jpg"
+		} else if lastFour == ".png" {
+			filename = productId + ".png"
+		} else if lastFour == ".gif" {
+			filename = productId + ".gif"
+		} else if lastFour == ".bmp" {
+			filename = productId + ".bmp"
+		} else {
+			return "", errors.New("Invalid file extension")
+		}
 
-	/*extension := strings.ToLower(filepath.Ext(filename))
-	if !allowedExtensions[extension] {
-		return "", fmt.Errorf("file type not allowed: %s", extension)
+	} else {
+		fmt.Println("String uzunluğu 4'ten küçük.")
 	}
-
-	return filename, nil*/
 	return filename, nil
 }
 
 // saveFile uploads a file to S3 and returns the URL.
-func (fc *FileController) saveFile(fileReader io.Reader, filename string) (string, error) {
-	newFileName, erro := fixFileName(filename)
-	if erro != nil {
-		return "", erro
+func (fc *FileController) saveFile(fileReader io.Reader, filename string, newFileName string) (string, error) {
+	newName, errr := fixFileName(filename, newFileName)
+	if errr != nil {
+		return "", errr
 	}
-	// Upload the file to S3 using the fileReader
 	_, err := fc.uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(fc.bucketName),
-		Key:    aws.String(newFileName),
+		Key:    aws.String(newName),
 		Body:   fileReader,
 	})
 	if err != nil {
