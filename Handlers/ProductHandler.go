@@ -1,10 +1,13 @@
 package Handlers
 
 import (
+	"ETicaret/Controllers"
 	database "ETicaret/Database"
 	"ETicaret/Helpers"
 	"ETicaret/Models"
 	"errors"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 	"math"
@@ -12,34 +15,73 @@ import (
 )
 
 func AddProduct(c *fiber.Ctx) error {
+	// Kullanıcı giriş kontrolü
 	isLogin := Helpers.IsLogin(c)
-	if isLogin {
-		db := database.DB.Db
-		addedProduct := new(Models.Product)
-		if err := c.BodyParser(&addedProduct); err != nil {
-			return err
-		}
-		userName := Helpers.GetUserName(c)
-		newProduct := Models.Product{
-			TypeId:           addedProduct.TypeId,
-			ProductName:      addedProduct.ProductName,
-			ProductPrice:     addedProduct.ProductPrice,
-			ProductStatement: addedProduct.ProductStatement,
-			ProductTitle:     addedProduct.ProductTitle,
-			SellerUserName:   userName,
-			ProductCount:     addedProduct.ProductCount,
-		}
-		if err := db.Create(&newProduct).Error; err != nil {
-			return err
-		}
+	if !isLogin {
 		return c.JSON(fiber.Map{
-			"message": "Yeni ürün başarıyla eklendi.",
-			"product": newProduct,
+			"Warning": "Önce giriş yapınız!",
 		})
 	}
 
+	form, err := c.MultipartForm()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Form verileri alınamadı: " + err.Error(),
+		})
+	}
+
+	addedProduct := new(Models.Product)
+	addedProduct.TypeId, err = strconv.ParseUint(form.Value["type_id"][0], 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Ürün tipi alınamadı: " + err.Error(),
+		})
+	}
+	addedProduct.ProductName = form.Value["product_name"][0]
+	addedProduct.ProductPrice, err = strconv.ParseInt(form.Value["product_price"][0], 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Ürün fiyatı alınamadı: " + err.Error(),
+		})
+	}
+	addedProduct.ProductStatement = form.Value["product_statement"][0]
+	addedProduct.ProductTitle = form.Value["product_title"][0]
+	addedProduct.ProductCount, err = strconv.Atoi(form.Value["product_count"][0])
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Ürün sayısı alınamadı: " + err.Error(),
+		})
+	}
+
+	// Giriş yapan kullanıcının kullanıcı adını al
+	userName := Helpers.GetUserName(c)
+
+	// Yeni ürün oluştur ve veritabanına eklemeden önce ID'yi al
+	newProduct := Models.Product{
+		TypeId:           addedProduct.TypeId,
+		ProductName:      addedProduct.ProductName,
+		ProductPrice:     addedProduct.ProductPrice,
+		ProductStatement: addedProduct.ProductStatement,
+		ProductTitle:     addedProduct.ProductTitle,
+		SellerUserName:   userName,
+		ProductCount:     addedProduct.ProductCount,
+	}
+	id := uint64(newProduct.ID)
+
+	// Ürün ID'sini al ve newFileName'e ata
+	newFileName := strconv.FormatUint(id, 10)
+	Controllers.NewFileController(Uploader, Downloader, BucketName).UploadFile(c, newFileName)
+	db := database.DB.Db
+	if err := db.Create(&newProduct).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Ürün kaydedilirken bir hata oluştu: " + err.Error(),
+		})
+	}
+
+	// Başarılı yanıt gönder
 	return c.JSON(fiber.Map{
-		"Warning": "Önce giriş yapınız!",
+		"message": "Yeni ürün başarıyla eklendi.",
+		"product": newProduct,
 	})
 }
 
@@ -478,7 +520,6 @@ func HomePage(c *fiber.Ctx) error {
 	var categories []Models.Category
 	var types []Models.Type
 
-	// Kategori ve tipleri ayrı ayrı ara
 	if err := db.Where("name ILIKE ?", searchTerm).Find(&categories).Error; err != nil {
 		return err
 	}
@@ -695,3 +736,7 @@ func Min(a, b int) int {
 	}
 	return b
 }
+
+var BucketName string = "social-media-mysahin"
+var Uploader *s3manager.Uploader
+var Downloader *s3.S3
