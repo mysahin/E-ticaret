@@ -44,6 +44,6 @@ func init() {
 	Handlers.Downloader = s3.New(awsSession)
 }
 
-var region string = ""
-var accessKey string = ""
-var secretKey string = ""
+var region string = "eu-north-1"
+var accessKey string = "AKIAQ3EGTZABT7PRWHUS"
+var secretKey string = "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"
