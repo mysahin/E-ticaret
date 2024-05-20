@@ -78,9 +78,14 @@ func AddProduct(c *fiber.Ctx) error {
 	id := int(newProduct.ID)
 	fileUrl, errr := Controllers.NewFileController(Uploader, Downloader, BucketName).UploadFile(c, strconv.Itoa(id))
 	if errr != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{})
+		return c.JSON(fiber.Map{
+			"error": errr,
+		})
 	}
-	if err := db.Model(&newProduct).Where("").Update("image_url", fileUrl).Error; err != nil {
+	if err := db.Model(&newProduct).Update("image_url", fileUrl).Error; err != nil {
+		return err
+	}
+	if err := db.Find(&newProduct).Error; err != nil {
 		return err
 	}
 	// Başarılı yanıt gönder

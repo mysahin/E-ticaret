@@ -13,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"strconv"
 )
 
 // FileController handles file operations.
@@ -57,7 +58,9 @@ func (fc *FileController) UploadFile(c *fiber.Ctx, newFileName string) (string, 
 		if err != nil {
 			return "", c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
-
+		uploadedFile.FileUrl = uploadedURL
+		uploadedFile.FileName = newFileName
+		uploadedFile.ProductId, _ = strconv.ParseUint(newFileName, 10, 64)
 		uploadedURLs = append(uploadedURLs, uploadedURL)
 		if err := db.Create(&uploadedFile).Error; err != nil {
 			return "", err
@@ -106,7 +109,7 @@ func (fc *FileController) saveFile(fileReader io.Reader, filename string, newFil
 	}
 
 	// Get the URL of the uploaded file
-	url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", fc.bucketName, filename)
+	url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", fc.bucketName, newName)
 
 	return url, nil
 }

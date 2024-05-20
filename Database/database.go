@@ -28,7 +28,7 @@ func Connect() {
 	log.Println("connected success")
 	db.Logger = logger.Default.LogMode(logger.Info)
 	log.Println("running migrations")
-	if err := db.AutoMigrate(Models.Login{}, Models.User{}, Models.Product{}, Models.Category{}, Models.Type{}, Models.Rating{}, Models.Comment{}); err != nil {
+	if err := db.AutoMigrate(Models.Login{}, Models.User{}, Models.Product{}, Models.Category{}, Models.Type{}, Models.Rating{}, Models.Comment{}, Models.Files{}); err != nil {
 		log.Fatal(err)
 	}
 
