@@ -3,13 +3,13 @@ package Controllers
 import (
 	database "ETicaret/Database"
 	"ETicaret/Models"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gofiber/fiber/v2"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"path/filepath"
@@ -22,8 +22,6 @@ type FileController struct {
 	downloader *s3.S3
 	bucketName string
 }
-
-var FileId uint = 0
 
 func NewFileController(uploader *s3manager.Uploader, downloader *s3.S3, bucketName string) *FileController {
 	if uploader == nil || downloader == nil {
@@ -54,18 +52,17 @@ func (fc *FileController) UploadFile(c *fiber.Ctx, newFileName string) (string, 
 		}
 		defer f.Close()
 
-		uploadedURL, err := fc.saveFile(f, fileHeader.Filename, newFileName)
+		uploadedURL, uploadedName, err := fc.saveFile(f, fileHeader.Filename, newFileName)
 		if err != nil {
 			return "", c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
 		uploadedFile.FileUrl = uploadedURL
-		uploadedFile.FileName = newFileName
+		uploadedFile.FileName = uploadedName
 		uploadedFile.ProductId, _ = strconv.ParseUint(newFileName, 10, 64)
 		uploadedURLs = append(uploadedURLs, uploadedURL)
 		if err := db.Create(&uploadedFile).Error; err != nil {
 			return "", err
 		}
-		FileId = uploadedFile.ID
 	}
 
 	return uploadedURLs[0], c.Status(http.StatusOK).JSON(fiber.Map{"urls": uploadedURLs})
@@ -84,7 +81,7 @@ func fixFileName(filename string, productId string) (string, error) {
 		} else if lastFour == ".bmp" {
 			filename = productId + ".bmp"
 		} else {
-			return "", errors.New("Invalid file extension")
+			return "", fmt.Errorf("invalid filename %s", filename)
 		}
 
 	} else {
@@ -94,10 +91,10 @@ func fixFileName(filename string, productId string) (string, error) {
 }
 
 // saveFile uploads a file to S3 and returns the URL.
-func (fc *FileController) saveFile(fileReader io.Reader, filename string, newFileName string) (string, error) {
+func (fc *FileController) saveFile(fileReader io.Reader, filename string, newFileName string) (string, string, error) {
 	newName, errr := fixFileName(filename, newFileName)
 	if errr != nil {
-		return "", errr
+		return "", "", errr
 	}
 	_, err := fc.uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(fc.bucketName),
@@ -105,13 +102,13 @@ func (fc *FileController) saveFile(fileReader io.Reader, filename string, newFil
 		Body:   fileReader,
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Get the URL of the uploaded file
 	url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", fc.bucketName, newName)
 
-	return url, nil
+	return url, newName, nil
 }
 
 // ListFiles lists all files in the S3 bucket.
@@ -161,24 +158,29 @@ func (fc *FileController) ShowFile(c *fiber.Ctx) error {
 }
 
 // DeleteFile deletes a file from S3.
-func (fc *FileController) DeleteFile(c *fiber.Ctx) error {
-	filename := c.Params("filename")
-
-	// Delete the file from S3
+func (fc *FileController) DeleteFile(c *fiber.Ctx, filename string) error {
 	_, err := fc.downloader.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(fc.bucketName),
 		Key:    aws.String(filename),
 	})
 	if err != nil {
+		// Log the error and return the error message in the response
+		log.Printf("Failed to delete file: %v\n", err)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	fmt.Printf("File '%s' successfully deleted.\n", filename)
+	// Ensure the delete operation is completed by waiting for the result
+	err = fc.downloader.WaitUntilObjectNotExists(&s3.HeadObjectInput{
+		Bucket: aws.String(fc.bucketName),
+		Key:    aws.String(filename),
+	})
+	if err != nil {
+		// Log the error and return the error message in the response
+		log.Printf("Error waiting for file to be deleted: %v\n", err)
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	log.Printf("File '%s' successfully deleted.\n", filename)
 
 	return c.SendStatus(http.StatusOK)
-}
-
-func GetFileId() uint {
-	fileId := FileId
-	return fileId
 }

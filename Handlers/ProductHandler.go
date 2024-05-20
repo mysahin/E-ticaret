@@ -337,6 +337,7 @@ func DeleteProduct(c *fiber.Ctx) error {
 		db := database.DB.Db
 		productId := c.Params("id")
 		var deleteProduct Models.Product
+		var file Models.Files
 
 		if err := db.First(&deleteProduct, "id = ?", productId).Error; err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -349,7 +350,16 @@ func DeleteProduct(c *fiber.Ctx) error {
 			if err := db.Delete(&deleteProduct).Error; err != nil {
 				return err
 			}
+			if err := db.First(&file, "product_id = ?", productId).Error; err != nil {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"error": "dosya bulunamadı",
+				})
+			}
 
+			Controllers.NewFileController(Uploader, Downloader, BucketName).DeleteFile(c, file.FileName)
+			if err := db.Delete(&file).Error; err != nil {
+				return err
+			}
 			return c.JSON(fiber.Map{
 				"message": "Ürün başarıyla silindi.",
 			})
